@@ -1,0 +1,40 @@
+{
+  "model_name": "Random Forest (Baseline)",
+  "experiment_name": "Binary_VPN_vs_NonVPN",
+  "num_test_samples": 10,
+  "accuracy": 1.0,
+  "precision_macro": 1.0,
+  "recall_macro": 1.0,
+  "macro_f1": 1.0,
+  "precision_weighted": 1.0,
+  "recall_weighted": 1.0,
+  "weighted_f1": 1.0,
+  "per_class": {
+    "non_vpn": {
+      "support": 5,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    },
+    "vpn": {
+      "support": 5,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      5,
+      0
+    ],
+    [
+      0,
+      5
+    ]
+  ],
+  "class_names": [
+    "non_vpn",
+    "vpn"
+  ]
+}

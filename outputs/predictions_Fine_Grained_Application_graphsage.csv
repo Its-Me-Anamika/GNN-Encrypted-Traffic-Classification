@@ -1,0 +1,9 @@
+flow_id,ground_truth,predicted,confidence,is_correct
+synthetic_flow_0,video_streaming,video_streaming,0.5085,True
+synthetic_flow_4,video_streaming,video_streaming,0.4752,True
+synthetic_flow_5,web_browsing,video_streaming,0.4489,False
+synthetic_flow_7,file_transfer,file_transfer,0.4632,True
+synthetic_flow_10,voip,voip,0.6069,True
+synthetic_flow_29,web_browsing,video_streaming,0.4489,False
+synthetic_flow_35,file_transfer,file_transfer,0.6235,True
+synthetic_flow_38,voip,voip,0.5011,True

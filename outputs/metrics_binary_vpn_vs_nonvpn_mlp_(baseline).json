@@ -1,0 +1,40 @@
+{
+  "model_name": "MLP (Baseline)",
+  "experiment_name": "Binary_VPN_vs_NonVPN",
+  "num_test_samples": 10,
+  "accuracy": 0.7,
+  "precision_macro": 0.8125,
+  "recall_macro": 0.7,
+  "macro_f1": 0.6703296703296704,
+  "precision_weighted": 0.8125,
+  "recall_weighted": 0.7,
+  "weighted_f1": 0.6703296703296703,
+  "per_class": {
+    "non_vpn": {
+      "support": 5,
+      "precision": 0.625,
+      "recall": 1.0,
+      "f1_score": 0.7692307692307693
+    },
+    "vpn": {
+      "support": 5,
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1_score": 0.5714285714285715
+    }
+  },
+  "confusion_matrix": [
+    [
+      5,
+      0
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "class_names": [
+    "non_vpn",
+    "vpn"
+  ]
+}

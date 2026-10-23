@@ -1,0 +1,47 @@
+PROJECT STATUS - ACADEMIC RESEARCH PIPELINE
+===============================================================================
+Project Title: Fine-Grained Encrypted Traffic Classification using Graph Neural Networks (GraphSAGE/GAT)
+
+COMPLETED IMPLEMENTATION:
+1. Real PCAP / PCAPNG Ingestion:
+   - Scapy-based streaming bidirectional flow extractor (src/flow_extractor.py).
+   - 26 flow-level statistical features: packet counts, byte counts, duration,
+     packet size statistics, inter-arrival-time (IAT) statistics, directional ratios,
+     TCP control flags, and transport protocol encoding.
+   - Zero payload decryption (privacy-preserving, TLS 1.3/QUIC compatible).
+
+2. Flow Graph Construction (src/graph_builder.py):
+   - Mathematically formulated flow graphs:
+     * Endpoint-sharing topology (flows sharing client/server IP addresses).
+     * Temporal co-occurrence topology (overlapping time windows).
+     * Feature-space k-NN topology.
+   - Zero label leakage: edges are constructed exclusively from unlabelled metadata.
+   - Leakage-free train/val/test masking and host-disjoint splitting support.
+
+3. Machine Learning Baselines & Graph Neural Networks:
+   - Tabular Baselines: Random Forest (100 trees) and Multi-Layer Perceptron (MLP) (src/models/baseline.py).
+   - Authentic GraphSAGE: Hamilton et al. (NeurIPS 2017) with Mean Aggregator, concatenation,
+     learnable projection, and L2 normalization (src/models/graphsage.py).
+   - Graph Attention Network (GAT): Velickovic et al. (ICLR 2018) multi-head self-attention (src/models/gat.py).
+
+4. Experiments & Evaluation (src/evaluator.py & src/pipeline.py):
+   - Experiment 1: Binary VPN vs Non-VPN classification.
+   - Experiment 2: Fine-grained multi-class application classification.
+   - Experiment 3: Baseline vs GraphSAGE vs GAT comparative benchmarking.
+   - Metrics: Accuracy, Precision, Recall, Macro-F1, per-class F1, confusion matrices,
+     and saved flow-level prediction CSVs.
+
+5. Demonstration & Automation:
+   - Dual-mode demonstration interface: Native Windows GUI (Tkinter) and CLI mode (app.py).
+   - 1-Click Windows execution scripts: run_project.bat and run_project.ps1.
+   - Comprehensive unit test suite with 9 passing tests (tests/).
+
+DATASET STATUS & SCIENTIFIC HONESTY:
+- The system is pre-configured to ingest canonical research datasets:
+  * ISCXVPN2016 (UNB CIC): 28 GB PCAPs for VPN and 10 application categories.
+  * USTC-TFC2016: 3.7 GB PCAPs for 10 benign application classes.
+- If real PCAPs are not yet downloaded into data/raw_pcaps/, the pipeline runs in self-test
+  mode using SYNTHETIC_PIPELINE_VERIFICATION.pcap, clearly marked as DATA MODE: SYNTHETIC.
+- As soon as real PCAP files are placed into data/raw_pcaps/<app_name>/, the pipeline
+  switches to real-world traffic evaluation without changing any code.
+===============================================================================

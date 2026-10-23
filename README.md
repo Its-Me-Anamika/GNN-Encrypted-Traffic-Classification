@@ -1,355 +1,184 @@
-<div align="center">
+# Fine-Grained Encrypted Traffic Classification using Graph Neural Networks (GraphSAGE/GAT)
 
-# 🔒 Fine-Grained Encrypted Traffic Classification Using Graph Neural Networks
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Framework](https://img.shields.io/badge/framework-PyTorch%20%7C%20Scapy%20%7C%20NetworkX-red.svg)](https://pytorch.org/)
+[![Status](https://img.shields.io/badge/status-Operational%20Research%20Pipeline-brightgreen.svg)]()
 
-### *Deep Learning Architecture for TLS/VPN/Tor Traffic Identification, Uncertainty Estimation, and Explainability*
+A research project that classifies encrypted network traffic into fine-grained application categories (video streaming, VoIP, file transfer, web browsing, messaging, etc.) and analyzes VPN vs Non-VPN encapsulation **without decrypting network payloads**.
 
-[![PyTorch Geometric](https://img.shields.io/badge/PyTorch_Geometric-v2.3+-ee4c2c.svg?style=for-the-badge&logo=pytorch&logoColor=white)](https://pyg.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-v0.104+-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-v18.2+-61dafb.svg?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
-[![Docker](https://img.shields.io/badge/Docker-Supported-2496ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-
-</div>
+The system extracts statistical bidirectional flow metadata using **Scapy**, models communication relationships as a **Flow Graph** (via host-interaction and temporal correlation), and trains an authentic **GraphSAGE** (Hamilton et al., NeurIPS 2017) inductive model and **GAT** (Veličković et al., ICLR 2018) alongside conventional machine learning baselines (Random Forest, MLP).
 
 ---
 
-## 📌 Executive Summary
+## 1. Research Objectives & Core Questions
 
-With the near-universal adoption of modern transport layer encryption protocols (**TLS 1.3, HTTPS, QUIC, WireGuard, OpenVPN, Tor**), legacy network monitoring techniques reliant on **Deep Packet Inspection (DPI)** or unencrypted SNI/DNS inspection have become ineffective. 
-
-This repository implements an end-to-end, production-grade engineering solution for **Fine-Grained Encrypted Traffic Classification** using **Graph Neural Networks (PyTorch Geometric GraphSAGE & Graph Attention Networks)**. 
-
-By representing network communication sessions as graph nodes and constructing dynamic temporal edges based on shared IP subnets and inter-flow timing proximity, the model captures complex topological relationship patterns among encrypted flows. The system features:
-
-- **Monte Carlo Dropout ($N=20$)** for predictive uncertainty measurement and out-of-distribution / unknown traffic isolation.
-- **GNNExplainer** for transparent, feature-level decision attribution per classified flow.
-- **FastAPI REST & WebSocket Backend** broadcasting real-time flow telemetry.
-- **React.js Dark Theme Dashboard** featuring interactive `vis-network` graph topology visualization, Chart.js metrics, and flow explainability modals.
+1. **Zero Payload Decryption**: Maintain end-user privacy and compatibility with TLS 1.3 / QUIC by inspecting only packet-header timing and sizing metadata.
+2. **Beyond Binary Classification**: VPN vs Non-VPN is evaluated as Experiment 1; the primary research goal is fine-grained multi-class application categorization.
+3. **Core Research Question**: *Does contextual graph structure (modeling concurrent sessions, shared endpoints, and temporal bursts) provide statistically significant accuracy and macro-F1 improvements over isolated flow tabular classifiers?*
+4. **Generalization & Leakage Prevention**: Enforce strict train/test separation and evaluate host-disjoint splits to ensure the model learns generalized behavioral dynamics rather than memorizing IP addresses.
 
 ---
 
-## 📚 Table of Contents
-- [Key Features](#-key-features)
-- [System Architecture](#-system-architecture)
-- [Machine Learning & Graph Technical Specification](#-machine-learning--graph-technical-specification)
-- [Application Category Mapping](#-application-category-mapping)
-- [Directory Structure](#-directory-structure)
-- [Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Method 1: Docker Compose (Recommended)](#method-1-docker-compose-recommended)
-  - [Method 2: Manual Local Installation](#method-2-manual-local-installation)
-- [CLI Training & Evaluation Scripts](#-cli-training--evaluation-scripts)
-- [API Overview](#-api-overview)
-- [Dashboard Features](#-dashboard-features)
-- [Project Report & Documentation](#-project-report--documentation)
-
-
----
-
-## ✨ Key Features
-
-- 🧠 **Graph Neural Network Classification**: Hybrid **GraphSAGE** and **GAT** architectures with residual skip connections, multi-head attention, and batch normalization.
-- 📊 **28 Statistical Flow Features**: Extracts packet rates, byte counts, IAT (Inter-Arrival Time) statistics, TCP flag distributions, and flow duration without decrypting payload data.
-- 🌐 **Dynamic Graph Topology**: Models flows as 5-tuple nodes `(src_ip, src_port, dst_ip, dst_port, protocol)` linked by weighted edges representing temporal proximity $w_{ij} = \exp(-|\Delta t| / \tau)$ and shared IP subnets.
-- 🎲 **Uncertainty & Unknown Detection**: Implements Monte Carlo Dropout forward sampling to compute predictive variance $\sigma^2$; flags flows with low confidence ($<0.65$) or high variance as `Unknown / Suspicious`.
-- 🔍 **GNNExplainer Attributions**: Generates feature-level attribution scores per flow, highlighting the top factors driving each classification decision.
-- ⚡ **Real-Time Live Streaming**: FastAPI WebSocket service (`/api/ws`) pushes live flow captures directly to the web dashboard.
-- 🖥️ **Interactive Dark-Theme Dashboard**: Built with React.js, Lucide icons, Chart.js, and `vis-network` for topological graph exploration.
-- 🐳 **Docker-Ready**: Orchestrated container deployment using Docker Compose for seamless single-command deployment.
-
----
-
-## 🏗️ System Architecture
+## 2. Pipeline Architecture
 
 ```
-                               ┌─────────────────────────────────────────┐
-                               │  Encrypted Network Traffic / PCAPs      │
-                               └────────────────────┬────────────────────┘
-                                                    │
-                                                    ▼
-                               ┌─────────────────────────────────────────┐
-                               │ 5-Tuple Extraction & Feature Engine     │
-                               │ (28 Statistical Packet & Flow Metrics)   │
-                               └────────────────────┬────────────────────┘
-                                                    │
-                                                    ▼
-                               ┌─────────────────────────────────────────┐
-                               │ PyTorch Geometric Graph Builder         │
-                               │  Nodes = Flows | Edges = Shared IP/Time │
-                               └────────────────────┬────────────────────┘
-                                                    │
-                                                    ▼
-                               ┌─────────────────────────────────────────┐
-                               │ EncryptedTrafficGNN Architecture        │
-                               │ (GraphSAGE / GAT + Monte Carlo Dropout) │
-                               └──────────┬───────────────────┬──────────┘
-                                          │                   │
-                                          ▼                   ▼
-                     ┌──────────────────────────┐   ┌──────────────────────────┐
-                     │ Confidence & Uncertainty │   │ GNNExplainer Module      │
-                     │ Thresholding (<0.65)     │   │ (Feature Importance)     │
-                     └────────────┬─────────────┘   └────────────┬─────────────┘
-                                  │                              │
-                                  └──────────────┬───────────────┘
-                                                 │
-                                                 ▼
-                               ┌─────────────────────────────────────────┐
-                               │ FastAPI REST & WebSocket Backend Server │
-                               └────────────────────┬────────────────────┘
-                                                    │
-                                                    ▼
-                               ┌─────────────────────────────────────────┐
-                               │ React.js Interactive Dashboard          │
-                               │ (Graph Canvas, Charts, Flow Modal)      │
-                               └─────────────────────────────────────────┘
+[ Real Labeled PCAPs / PCAPNG ]
+            │
+            ▼  (src/flow_extractor.py)
+[ Scapy Streaming Flow Extractor ] ──► Bidirectional 5-Tuple Tracking
+            │                          (Packets, Bytes, IATs, Sizes, TCP Flags)
+            ▼
+[ 26 Statistical Features ]
+            │
+            ├───► [ Tabular Baselines ] ──► Random Forest / MLP Classifier
+            │
+            ▼  (src/graph_builder.py)
+[ Flow-Level Graph Construction ] ──► Nodes: Flows | Edges: Endpoint Sharing / Temporal
+            │                          Zero Label Leakage Enforced
+            ▼
+[ Graph Neural Networks ] ─────────► 1. GraphSAGE (Mean Aggregator + L2-Norm)
+                                       2. GAT (Multi-Head Attention)
+            │
+            ▼  (src/evaluator.py)
+[ Comprehensive Evaluation ] ───────► Accuracy, Precision, Recall, Macro-F1,
+                                       Confusion Matrix, Comparative Summary Table
 ```
 
 ---
 
-## 🔬 Machine Learning & Graph Technical Specification
+## 3. Mathematical Formulation
 
-### 1. Flow 5-Tuple & Feature Extraction
-Every network conversation is identified by its unique 5-tuple:
-$$\text{Flow} = (\text{src\_ip}, \text{src\_port}, \text{dst\_ip}, \text{dst\_port}, \text{protocol})$$
+### 3.1 GraphSAGE (Hamilton et al., 2017)
+For node $v \in \mathcal{V}$ at layer $k$:
+1. **Neighborhood Mean Aggregation**:
+   $$h_{\mathcal{N}(v)}^{(k)} = \frac{1}{|\mathcal{N}(v)|} \sum_{u \in \mathcal{N}(v)} h_u^{(k-1)}$$
+2. **Concatenation & Linear Transformation**:
+   $$z_v^{(k)} = \sigma\left(W^{(k)} \cdot [h_v^{(k-1)} \,\|\, h_{\mathcal{N}(v)}^{(k)}] + b^{(k)}\right)$$
+3. **L2 Normalization**:
+   $$h_v^{(k)} = \frac{z_v^{(k)}}{\|z_v^{(k)}\|_2}$$
 
-From each flow, **28 statistical features** are extracted:
-1. `fwd_pkt_count`, `bwd_pkt_count`, `total_pkt_count`
-2. `fwd_byte_count`, `bwd_byte_count`, `total_byte_count`
-3. `pkt_len_min`, `pkt_len_max`, `pkt_len_mean`, `pkt_len_std`, `pkt_len_median`
-4. `fwd_pkt_len_mean`, `bwd_pkt_len_mean`
-5. `flow_duration`, `flow_bytes_per_sec`, `flow_pkts_per_sec`
-6. `iat_mean`, `iat_std`, `iat_min`, `iat_max`
-7. `tcp_flag_syn`, `tcp_flag_ack`, `tcp_flag_fin`, `tcp_flag_rst`, `tcp_flag_psh`, `tcp_flag_urg`
-8. `payload_bytes_ratio`, `is_vpn_flag`
-
-### 2. Graph Construction Formulation
-- **Nodes ($V$)**: Individual flow feature vectors $x_i \in \mathbb{R}^{28}$.
-- **Edges ($E$)**: An edge $e_{ij}$ is formed if flow $i$ and flow $j$ share a source IP, destination IP, or cross-talking relationship.
-- **Edge Weight ($w_{ij}$)**: Calculated via exponential decay over flow duration difference $\Delta t$:
-$$w_{ij} = \exp\left(-\frac{|\text{duration}_i - \text{duration}_j|}{\tau}\right) \quad (\text{where } \tau = 10.0)$$
-
-### 3. Uncertainty Estimation via Monte Carlo Dropout
-During evaluation, dropout layers remain active across $N=20$ stochastic forward passes:
-$$\mu = \frac{1}{N}\sum_{s=1}^{N} P(y \mid X, W_s), \quad \sigma^2 = \frac{1}{N}\sum_{s=1}^{N} \left(P(y \mid X, W_s) - \mu\right)^2$$
-If $\max(\mu) < 0.65$ or $\text{mean}(\sigma^2) > 0.08$, the flow is categorized as **`Unknown`**.
+### 3.2 Graph Attention Network (Veličković et al., 2018)
+Self-attention over neighbor interactions:
+$$\alpha_{uv} = \frac{\exp\left(\text{LeakyReLU}\left(\vec{a}^T [W h_u \,\|\, W h_v]\right)\right)}{\sum_{k \in \mathcal{N}(v)} \exp\left(\text{LeakyReLU}\left(\vec{a}^T [W h_k \,\|\, W h_v]\right)\right)}$$
+$$h_v' = \sigma\left(\frac{1}{K} \sum_{k=1}^K \sum_{u \in \mathcal{N}(v)} \alpha_{uv}^k W^k h_u\right)$$
 
 ---
 
-## 🏷️ Application Category Mapping
+## 4. Extracted Flow Metadata Features (26 Dimensions)
 
-| Category | Description | Primary Ports | Protocol Characteristics |
-| :--- | :--- | :--- | :--- |
-| 🟣 **Streaming** | Netflix, YouTube, Spotify, Twitch | 443 | High byte count, sustained flow duration |
-| 🔵 **Chat** | WhatsApp, Telegram, Signal | 443 | Low packet count, periodic short burst IAT |
-| 🔷 **VoIP** | Zoom, Skype, Google Meet | 5060 / UDP | High packet rate, low payload variance |
-| 🟢 **File Transfer** | FTP, SFTP, Mega, Google Drive | 21, 443 | High forward byte ratio, max packet sizes |
-| 🟠 **Browsing** | HTTPS, General Web Navigation | 443 | Medium packet size, short flow duration |
-| 🔴 **P2P** | BitTorrent, Peer-to-peer sharing | 6881-6889 | High connection concurrency, dual UDP/TCP |
-| 💗 **Email** | IMAPS, SMTPS, POP3S | 993, 465 | Low packet rate, strict handshake sequence |
-| 🔮 **VPN** | OpenVPN, WireGuard, IPSec | 1194, 500 | High byte throughput, encapsulated headers |
-| ⚪ **Unknown** | Out-of-distribution / Anomaly | Various | High uncertainty score ($\sigma^2 > 0.08$) |
+| Feature Group | Features Extracted |
+|---|---|
+| **Packet Counts** | `total_packets`, `fwd_packets`, `bwd_packets` |
+| **Byte Counts** | `total_bytes`, `fwd_bytes`, `bwd_bytes` |
+| **Duration & Rates** | `duration_sec`, `packet_rate_per_sec`, `byte_rate_per_sec` |
+| **Packet Size Distribution** | `pkt_size_min`, `pkt_size_max`, `pkt_size_mean`, `pkt_size_std` |
+| **Inter-Arrival Times (IAT)** | `iat_min`, `iat_max`, `iat_mean`, `iat_std` |
+| **Directional Ratios** | `fwd_bwd_packet_ratio`, `fwd_bwd_byte_ratio` |
+| **TCP Control Flags** | `flag_syn_count`, `flag_ack_count`, `flag_fin_count`, `flag_rst_count`, `flag_psh_count`, `flag_urg_count` |
+| **Transport Protocol** | One-hot encoded `TCP`, `UDP`, `ICMP`, `OTHER` |
 
 ---
 
-## 📂 Directory Structure
+## 5. Public Benchmark Datasets
+
+The system directly supports the two canonical research benchmark datasets:
+
+### 1. ISCXVPN2016 (UNB / Canadian Institute for Cybersecurity)
+- **URL**: [https://www.unb.ca/cic/datasets/vpn.html](https://www.unb.ca/cic/datasets/vpn.html)
+- **Size**: ~28 GB PCAP files.
+- **Classes**:
+  - Binary: `vpn` vs `non_vpn`
+  - Multi-Class Categories: `browsing`, `streaming`, `chat`, `voip`, `file_transfer`, `mail`, `vpn_streaming`, `vpn_chat`, `vpn_voip`, `vpn_file_transfer`.
+
+### 2. USTC-TFC2016
+- **URL**: [https://github.com/yungshenglu/USTC-TFC2016](https://github.com/yungshenglu/USTC-TFC2016)
+- **Size**: ~3.7 GB PCAP files.
+- **Classes**: 10 benign encrypted applications (`Facetime`, `FTP`, `Gmail`, `MySQL`, `Outlook`, `Skype`, `SMB`, `Weibo`, `WorldOfWarcraft`, `YouTube`).
+
+### How to Add Data to This Project
+* Place PCAPs into `data/raw_pcaps/<application_name>/` (e.g. `data/raw_pcaps/youtube/*.pcap`).
+* Or for binary experiments, place into `data/raw_pcaps/vpn/` and `data/raw_pcaps/non_vpn/`.
+
+---
+
+## 6. Project Structure
 
 ```
-gnn-encrypted-traffic/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI application entrypoint & WS lifespan
-│   │   ├── config.py            # Pydantic settings & threshold configs
-│   │   ├── models/
-│   │   │   ├── database.py      # SQLAlchemy schemas (TrafficFlow, Metrics)
-│   │   │   └── schemas.py       # Pydantic validation models
-│   │   ├── api/
-│   │   │   ├── routes.py        # REST API endpoints (/health, /metrics, /flows, etc.)
-│   │   │   └── websocket.py     # ConnectionManager for WebSocket streaming
-│   │   ├── services/
-│   │   │   ├── classifier.py    # GNN inference, MC Dropout & fallback service
-│   │   │   ├── feature_extractor.py # Scapy PCAP reader & feature builder
-│   │   │   ├── graph_builder.py # PyTorch Geometric Data object builder
-│   │   │   └── explainer.py     # GNNExplainer feature attribution
-│   │   ├── ml/
-│   │   │   ├── models.py        # GraphSAGE & GAT PyG network architectures
-│   │   │   ├── baselines.py     # Random Forest & MLP baseline implementations
-│   │   │   ├── dataset.py       # PyG dataset loader & graph split generator
-│   │   │   └── trainer.py       # Training loop with metrics computation
-│   │   └── utils/
-│   │       ├── preprocessing.py # Standard scaling & synthetic flow generator
-│   │       └── evaluation.py    # Accuracy, F1-score & confusion matrix computation
-│   ├── synthetic_data.py        # Dataset & pre-trained weight bootstrapper
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── App.js               # Main React application layout & tab state
-│   │   ├── index.js             # React DOM root entry point
-│   │   ├── styles/
-│   │   │   └── global.css       # Sleek Dark Theme, glassmorphism, responsive grid
-│   │   ├── components/
-│   │   │   ├── Layout/          # Header, Sidebar, Footer
-│   │   │   ├── Dashboard/       # GraphVisualization, ClassificationChart, Tables, Cards
-│   │   │   ├── FlowDetail/      # FlowDetailModal, ExplainabilityPanel
-│   │   │   └── Common/          # LoadingSpinner, ErrorBoundary
-│   │   ├── services/            # Axios API client & WebSocket listener
-│   │   ├── hooks/               # useWebSocket & useFlows React hooks
-│   │   └── utils/               # Formatters & category badge utilities
-│   ├── package.json
-│   ├── Dockerfile
-│   └── .env.example
-├── ml/
-│   ├── train.py                 # CLI model training entry point
-│   ├── preprocess.py            # ISCX VPN-nonVPN raw PCAP preprocessor
-│   ├── evaluate.py              # Baseline benchmark comparison runner
-│   ├── inference.py             # Standalone CLI prediction tool
-│   ├── config.yaml              # Hyperparameters & dataset configuration
-│   └── notebooks/               # Jupyter research notebooks
-├── docker/
-│   ├── backend.Dockerfile
-│   ├── frontend.Dockerfile
-│   └── nginx.conf
-├── docker-compose.yml
-├── README.md
-├── INSTALLATION.md
-├── API_DOCS.md
-└── PROJECT_REPORT.md
+encrypted_traffic_gnn_demo/
+├── data/
+│   ├── raw_pcaps/            # Place real PCAPs here by class or VPN folder
+│   ├── processed/            # Extracted flows_dataset.csv
+│   └── test_samples/         # Explicitly marked SYNTHETIC test PCAPs for testing
+├── outputs/
+│   ├── saved_models/         # PyTorch checkpoints (.pt)
+│   ├── cm_*.png              # Confusion matrix heatmaps
+│   ├── metrics_*.json        # Detailed quantitative metrics
+│   └── model_comparison_*.csv # Tabular vs GNN comparison
+├── src/
+│   ├── config.py             # Feature definitions, paths, hyperparameters
+│   ├── flow_extractor.py     # Scapy bidirectional flow parser
+│   ├── graph_builder.py      # Flow graph construction & leakage-free splits
+│   ├── dataset_manager.py    # PCAP discovery, label mapping, dataset catalog
+│   ├── evaluator.py          # Metrics, confusion matrices, comparison tables
+│   ├── pipeline.py           # Unified experiment orchestrator
+│   └── models/
+│       ├── baseline.py       # Random Forest and MLP classifiers
+│       ├── graphsage.py      # Authentic GraphSAGE (Hamilton et al. 2017)
+│       └── gat.py            # Graph Attention Network (Veličković et al. 2018)
+├── tests/
+│   ├── test_flow_extractor.py # Tests Scapy parsing & flow statistics
+│   ├── test_graph_builder.py  # Tests graph topology & zero leakage
+│   └── test_models.py         # Tests GraphSAGE, GAT, and baselines
+├── ui/                       # UI assets
+├── app.py                    # Demonstration interface (Native Windows GUI & CLI)
+├── run_project.bat           # 1-Click Windows Batch Launcher
+├── run_project.ps1           # 1-Click Windows PowerShell Launcher
+├── requirements.txt          # Python dependencies
+└── README.md                 # Complete documentation
 ```
 
 ---
 
-## ⚡ Getting Started
+## 7. Installation & Quick Start
 
-### Prerequisites
-
-- **Python**: `3.10` or higher
-- **Node.js**: `18.x` or higher
-- **Docker & Docker Compose**: (Optional, for containerized run)
-
----
-
-### Method 1: Docker Compose (Recommended)
-
-Run the complete stack (Backend + Frontend + Nginx) with a single command:
-
+### Step 1: Install Dependencies
+Open PowerShell or Command Prompt in the project folder and run:
 ```bash
-# 1. Navigate to project root directory
-cd D:\Users\ANAMIKA\Documents\gnn-encrypted-traffic
-
-# 2. Build and launch containers
-docker-compose up --build
-```
-
-- 🌐 **React Dashboard**: [http://localhost:3000](http://localhost:3000)
-- ⚡ **FastAPI REST API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- 📡 **WebSocket Endpoint**: `ws://localhost:8000/api/ws`
-
----
-
-### Method 2: Manual Local Installation
-
-#### 1. Start the FastAPI Backend
-
-```bash
-# Navigate to backend folder
-cd D:\Users\ANAMIKA\Documents\gnn-encrypted-traffic\backend
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# Linux / macOS:
-source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Bootstrap synthetic dataset and train initial GNN model weights
-python synthetic_data.py
-
-# Launch FastAPI development server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### 2. Start the React.js Dashboard
-
-In a new terminal window:
-
-```bash
-# Navigate to frontend folder
-cd D:\Users\ANAMIKA\Documents\gnn-encrypted-traffic\frontend
-
-# Install Node modules
-npm install
-
-# Start React development server
-npm start
+### Step 2: Run Using the Windows Script
+Double-click `run_project.bat` or run in PowerShell:
+```powershell
+.\run_project.ps1
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) in your web browser.
+### Step 3: Command-Line Execution
+* **Experiment 1 (Fine-Grained Application Classification)**:
+  ```bash
+  python -m src.pipeline --experiment fine_grained_app
+  ```
+* **Experiment 2 (Binary VPN vs Non-VPN Classification)**:
+  ```bash
+  python -m src.pipeline --experiment binary_vpn
+  ```
+* **Run Unit Tests**:
+  ```bash
+  python -m unittest discover tests -v
+  ```
+* **Launch GUI Demonstration**:
+  ```bash
+  python app.py
+  ```
+* **Launch CLI Demonstration on a PCAP**:
+  ```bash
+  python app.py --cli --pcap "path/to/traffic.pcap"
+  ```
 
 ---
 
-## 🧪 CLI Training & Evaluation Scripts
+## 8. Scientific Honesty & Validation Protocols
 
-The `ml/` folder contains CLI commands for training models, preprocessing data, and evaluating performance:
-
-```bash
-# Train GraphSAGE GNN Model (50 Epochs)
-python ml/train.py --model GraphSAGE --epochs 50 --lr 0.001
-
-# Train Graph Attention Network (GAT) Model
-python ml/train.py --model GAT --epochs 50 --lr 0.001
-
-# Run Baseline Comparison (GraphSAGE vs GAT vs Random Forest)
-python ml/evaluate.py
-
-# Run Standalone Flow Prediction CLI
-python ml/inference.py --category Streaming --is-vpn
-
-# Preprocess Raw PCAP Directory or Generate Synthetic Benchmark
-python ml/preprocess.py --samples 1000
-```
-
----
-
-## 📡 API Overview
-
-### REST Endpoints
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` | System health check and model loading status |
-| `GET` | `/api/metrics` | Real-time KPIs, category distribution & protocol split |
-| `GET` | `/api/flows` | List recent traffic flows with search, category filtering, & pagination |
-| `GET` | `/api/flows/{id}` | Single flow metadata with GNNExplainer attributions |
-| `POST` | `/api/classify` | Classify raw 5-tuple flow dictionary or PCAP snippet |
-| `GET` | `/api/analytics` | Time-series traffic trends and bandwidth volume |
-| `GET` | `/api/model/performance` | Model accuracy, F1-scores, per-class metrics & confusion matrix |
-
-### WebSocket Endpoint
-- **URL**: `ws://localhost:8000/api/ws`
-- **Behavior**: Continuously streams `NEW_FLOW` events with live classification results as network traffic is captured.
-
----
-
-## 🖥️ Dashboard Features
-
-1. **Live Metrics Cards**: Total flows, VPN encapsulation ratio, average GNN confidence score, and unknown traffic count.
-2. **Interactive Network Graph**: `vis-network` graph canvas illustrating flow node relationships, color-coded by application category.
-3. **Category Breakdown Chart**: Chart.js doughnut chart rendering percentage distribution across application types.
-4. **Traffic Volume Timeline**: Real-time traffic ingestion line graph.
-5. **Flow Table & Filter**: Searchable traffic table supporting instant category filter pills and deep-dive inspection.
-6. **Flow Detail Modal**: Displays complete 5-tuple metrics alongside **GNNExplainer feature attributions**, explaining *why* the neural network made a specific prediction.
-
----
-
-## 📄 Project Report & Documentation
-
-- [INSTALLATION.md](INSTALLATION.md): Detailed installation and troubleshooting guide.
-- [API_DOCS.md](API_DOCS.md): Complete REST & WebSocket API specification.
-- [PROJECT_REPORT.md](PROJECT_REPORT.md): Academic engineering report synopsis with research background, equations, and benchmark comparison tables.
-
+1. **No Synthetic Misrepresentation**: If real PCAPs are not yet downloaded into `data/raw_pcaps/`, the pipeline automatically executes in self-test mode with explicitly labeled `SYNTHETIC_PIPELINE_VERIFICATION.pcap` so all code and dimensions can be verified. Such runs are explicitly flagged `DATA MODE: SYNTHETIC` in outputs and console logs.
+2. **Zero Label Leakage**: Graph edges are computed strictly using host-interaction endpoints, timestamps, or unsupervised feature similarity. Labels $y$ are never visible during graph topology generation.
+3. **Exact Same Train/Test Splits**: Random Forest, MLP, GraphSAGE, and GAT are evaluated on the identical test split to guarantee fair scientific comparison.

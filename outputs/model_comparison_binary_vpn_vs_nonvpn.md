@@ -1,0 +1,11 @@
+# Model Comparison: Binary_VPN_vs_NonVPN
+
+| Model | Accuracy | Macro-F1 | Precision (Macro) | Recall (Macro) | Weighted-F1 | Test Samples |
+| --- | --- | --- | --- | --- | --- | --- |
+| Random Forest (Baseline) | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 10 |
+| MLP (Baseline) | 0.7000 | 0.6703 | 0.8125 | 0.7000 | 0.6703 | 10 |
+| GraphSAGE (GNN) | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 10 |
+| GAT (GNN) | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 10 |
+
+
+*Evaluation performed under identical train/test splits with zero label leakage.*

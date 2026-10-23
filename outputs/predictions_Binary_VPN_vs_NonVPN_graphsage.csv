@@ -1,0 +1,11 @@
+flow_id,ground_truth,predicted,confidence,is_correct
+synthetic_flow_2,non_vpn,non_vpn,0.9118,True
+synthetic_flow_3,non_vpn,non_vpn,0.9118,True
+synthetic_flow_8,vpn,vpn,0.9136,True
+synthetic_flow_9,vpn,vpn,0.9137,True
+synthetic_flow_18,non_vpn,non_vpn,0.9118,True
+synthetic_flow_29,non_vpn,non_vpn,0.9119,True
+synthetic_flow_31,vpn,vpn,0.9137,True
+synthetic_flow_32,vpn,vpn,0.9136,True
+synthetic_flow_35,non_vpn,non_vpn,0.9118,True
+synthetic_flow_39,vpn,vpn,0.9137,True
