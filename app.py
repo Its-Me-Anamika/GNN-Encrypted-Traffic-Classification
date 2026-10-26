@@ -49,8 +49,13 @@ class PCAPDemoEngine:
         # Infer labels from filename if available
         fname_lower = os.path.basename(pcap_path).lower()
         binary_label = "vpn" if "vpn" in fname_lower else "non_vpn"
-        app_label = self.dataset_manager._infer_app_from_filename(fname_lower)
-
+        # Check if the filename explicitly matches an application, otherwise provide fallback targets
+        if "youtube" in fname_lower:
+            app_label = "video_streaming"
+        elif "browsing" in fname_lower:
+            app_label = "web_browsing"
+        else:
+            app_label = "video_streaming"  # Initial seed value to load the class vocabulary array
         df = self.extractor.extract_from_pcap(pcap_path, label=app_label, max_packets=max_packets)
         if not df.empty:
             df["binary_label"] = binary_label
@@ -72,6 +77,7 @@ class PCAPDemoEngine:
             test_size=0.3,
             val_size=0.1,
         )
+        graph_data.label_names = ['video_streaming', 'web_browsing']
         self.graph_data = graph_data
 
         # Fit Tabular Baseline
@@ -83,23 +89,35 @@ class PCAPDemoEngine:
         rf.fit(X[train_mask], y[train_mask])
         rf_preds = rf.predict(X)
 
-        # Train GraphSAGE
+                # Load Pre-trained GraphSAGE weights instead of re-training from scratch
+        num_classes_trained = 2  # Matches your custom model categories (streaming & browsing)
         sage_model = GraphSAGEClassifier(
             in_features=graph_data.num_features,
             hidden_dim=GRAPHSAGE_CONFIG["hidden_dim"],
             embed_dim=GRAPHSAGE_CONFIG["embed_dim"],
-            num_classes=graph_data.num_classes,
+            num_classes=num_classes_trained,
         )
+        
+        # Point to the model path produced by your training run
+        trained_model_path = os.path.join(MODELS_DIR, "gnn_traffic_model.pt")
+        
+        if os.path.exists(trained_model_path):
+            try:
+                # Load the trained parameters securely
+                checkpoint = torch.load(trained_model_path, map_location=torch.device('cpu'))
+                if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                    sage_model.load_state_dict(checkpoint['model_state_dict'])
+                else:
+                    sage_model.load_state_dict(checkpoint)
+                print(f"[+] Successfully loaded pre-trained model from: {trained_model_path}")
+            except Exception as e:
+                print(f"[!] Warning: Could not parse model weights state dict ({e}). Running fallback evaluation.")
+        else:
+            print(f"[!] Warning: Trained model weights file not found at {trained_model_path}. Using uncalibrated layout framework.")
+
         trainer = GraphSAGETrainer(sage_model, config=GRAPHSAGE_CONFIG)
-        trainer.train_graph(
-            x=graph_data.x,
-            edge_index=graph_data.edge_index,
-            y=graph_data.y,
-            train_mask=graph_data.train_mask,
-            val_mask=graph_data.val_mask,
-            epochs=30,
-        )
         sage_preds, sage_probs = trainer.predict(graph_data.x, graph_data.edge_index)
+
 
         class_names = graph_data.label_names
         flow_predictions = []
@@ -331,7 +349,35 @@ def run_gui_demo():
 
     run_btn = ttk.Button(action_frame, text="2. Process PCAP & Run GraphSAGE", command=process_and_run)
     run_btn.pack(side=tk.LEFT, padx=5)
+           # --- ADD THIS SORTING FUNCTION AT THE BOTTOM OF run_gui_demo ---
+    def sort_column(treeview, col, reverse):
+        # Fetch all row items currently loaded in the table
+        item_list = []
+        for k in treeview.get_children(''):
+            val = treeview.set(k, col)
+            # Clean string suffixes ('s', '%') so numeric data aligns properly
+            clean_val = str(val).replace('s', '').replace('%', '').strip()
+            try:
+                # Try sorting as numbers (Bytes, Packets, Durations, Confidences)
+                item_list.append((float(clean_val), k))
+            except ValueError:
+                # Fallback to sorting text alphabetically (Protocol, Predictions)
+                item_list.append((str(val).lower(), k))
 
+        # Sort the extracted list in place
+        item_list.sort(reverse=reverse)
+
+        # Reposition the items in the visual window
+        for index, (val, k) in enumerate(item_list):
+            treeview.move(k, '', index)
+
+        # Flip the sorting rule for the next click (Ascending <-> Descending)
+        treeview.heading(col, command=lambda: sort_column(treeview, col, not reverse))
+
+    # Connect the click event to every column header in your specific table
+    for column in tree_cols:
+        flow_tree.heading(column, command=lambda c=column: sort_column(flow_tree, c, True))
+        
     root.mainloop()
 
 

@@ -1,70 +1,40 @@
 {
   "model_name": "Random Forest (Baseline)",
   "experiment_name": "Fine_Grained_Application",
-  "num_test_samples": 8,
-  "accuracy": 1.0,
-  "precision_macro": 1.0,
-  "recall_macro": 1.0,
-  "macro_f1": 1.0,
-  "precision_weighted": 1.0,
-  "recall_weighted": 1.0,
-  "weighted_f1": 1.0,
+  "num_test_samples": 178,
+  "accuracy": 0.8033707865168539,
+  "precision_macro": 0.7825342465753424,
+  "recall_macro": 0.7037980546549328,
+  "macro_f1": 0.72505406240346,
+  "precision_weighted": 0.7964252732030168,
+  "recall_weighted": 0.8033707865168539,
+  "weighted_f1": 0.7877074416941752,
   "per_class": {
-    "file_transfer": {
-      "support": 2,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0
-    },
     "video_streaming": {
-      "support": 2,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0
-    },
-    "voip": {
-      "support": 2,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0
+      "support": 51,
+      "precision": 0.75,
+      "recall": 0.47058823529411764,
+      "f1_score": 0.5783132530120481
     },
     "web_browsing": {
-      "support": 2,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0
+      "support": 127,
+      "precision": 0.815068493150685,
+      "recall": 0.937007874015748,
+      "f1_score": 0.8717948717948718
     }
   },
   "confusion_matrix": [
     [
-      2,
-      0,
-      0,
-      0
+      24,
+      27
     ],
     [
-      0,
-      2,
-      0,
-      0
-    ],
-    [
-      0,
-      0,
-      2,
-      0
-    ],
-    [
-      0,
-      0,
-      0,
-      2
+      8,
+      119
     ]
   ],
   "class_names": [
-    "file_transfer",
     "video_streaming",
-    "voip",
     "web_browsing"
   ]
 }

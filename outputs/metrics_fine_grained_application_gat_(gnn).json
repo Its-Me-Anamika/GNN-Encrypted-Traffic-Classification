@@ -1,70 +1,40 @@
 {
   "model_name": "GAT (GNN)",
   "experiment_name": "Fine_Grained_Application",
-  "num_test_samples": 8,
-  "accuracy": 0.375,
-  "precision_macro": 0.3333333333333333,
-  "recall_macro": 0.375,
-  "macro_f1": 0.35,
-  "precision_weighted": 0.3333333333333333,
-  "recall_weighted": 0.375,
-  "weighted_f1": 0.35,
+  "num_test_samples": 178,
+  "accuracy": 0.8595505617977528,
+  "precision_macro": 0.9021428571428571,
+  "recall_macro": 0.7607688744789254,
+  "macro_f1": 0.7966457981081205,
+  "precision_weighted": 0.8756099518459068,
+  "recall_weighted": 0.8595505617977528,
+  "weighted_f1": 0.8449363237688484,
   "per_class": {
-    "file_transfer": {
-      "support": 2,
-      "precision": 0.5,
-      "recall": 0.5,
-      "f1_score": 0.5
-    },
     "video_streaming": {
-      "support": 2,
-      "precision": 0.3333333333333333,
-      "recall": 0.5,
-      "f1_score": 0.4
-    },
-    "voip": {
-      "support": 2,
-      "precision": 0.5,
-      "recall": 0.5,
-      "f1_score": 0.5
+      "support": 51,
+      "precision": 0.9642857142857143,
+      "recall": 0.5294117647058824,
+      "f1_score": 0.6835443037974683
     },
     "web_browsing": {
-      "support": 2,
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1_score": 0.0
+      "support": 127,
+      "precision": 0.84,
+      "recall": 0.9921259842519685,
+      "f1_score": 0.9097472924187726
     }
   },
   "confusion_matrix": [
     [
-      1,
-      0,
-      1,
-      0
-    ],
-    [
-      0,
-      1,
-      0,
-      1
+      27,
+      24
     ],
     [
       1,
-      0,
-      1,
-      0
-    ],
-    [
-      0,
-      2,
-      0,
-      0
+      126
     ]
   ],
   "class_names": [
-    "file_transfer",
     "video_streaming",
-    "voip",
     "web_browsing"
   ]
 }
